@@ -1,0 +1,9 @@
+[package]
+name = "rustcii"
+version = "0.1.0"
+authors = ["DrPandemic"]
+
+[dependencies]
+image = "*"
+imageproc = "*"
+rusttype = "*"
