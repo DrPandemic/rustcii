@@ -121,18 +121,13 @@ fn compare_images(a: &BaseImage, b: &SubImage<&BaseImage>) -> f32 {
   if a.dimensions() != b.dimensions() {
     panic!("Images size didn't match")
   }
-  let mut diff = 0.;
-  for x in 0..a.dimensions().0 {
-    for y in 0..b.dimensions().1 {
-      let a_p = a.get_pixel(x, y);
-      let b_p = b.get_pixel(x, y);
+  (0..a.dimensions().0).cartesian_product(0..a.dimensions().1).fold(0., |acc, (x, y)| {
+    let a_p = a.get_pixel(x, y);
+    let b_p = b.get_pixel(x, y);
 
-      // Only one channel since it's using grayscale
-      diff += (a_p[0] as i16 - b_p[0] as i16).abs() as f32 / 255.;
-    }
-  }
-
-  diff / (a.dimensions().0 as f32 * a.dimensions().1 as f32)
+    // Only one channel since it's using grayscale
+    acc + (a_p[0] as i16 - b_p[0] as i16).abs() as f32 / 255.
+  }) / (a.dimensions().0 as f32 * a.dimensions().1 as f32)
 }
 
 fn best_character<'a>(source_tile: &SubImage<&BaseImage>, characters: &'a Vec<(char, BaseImage)>) -> &'a char {
@@ -150,29 +145,16 @@ fn best_character<'a>(source_tile: &SubImage<&BaseImage>, characters: &'a Vec<(c
 }
 
 fn get_average_color(image: &SubImage<&BaseImage>) -> Rgb<u8> {
-  let mut r: f64 = 0.;
-  let mut g: f64 = 0.;
-  let mut b: f64 = 0.;
   let size = (image.dimensions().0 * image.dimensions().1) as f64;
-  for x in 0..image.dimensions().0 {
-    for y in 0..image.dimensions().1 {
-      let pixel = image.get_pixel(x, y);
-      r += pixel[0] as f64;
-      g += pixel[1] as f64;
-      b += pixel[2] as f64;
-    }
-  }
+  let (r, g, b) = image.pixels().fold((0., 0., 0.), |(r, g, b), (_, _, pixel)| {
+    (r + pixel[0] as f64, g + pixel[1] as f64, b + pixel[2] as f64)
+  });
   Rgb([(r / size) as u8, (g / size) as u8, (b / size) as u8])
 }
 
 fn get_average_britghness(image: &SubImage<&BaseImage>) -> Rgb<u8> {
-  let mut brightness: f64 = 0.;
-  let size = (image.dimensions().0 * image.dimensions().1) as f64;
-  for x in 0..image.dimensions().0 {
-    for y in 0..image.dimensions().1 {
-      let pixel = image.get_pixel(x, y);
-      brightness += ((pixel[0] * 2 + pixel[1] * 3 + pixel[2]) / 6) as f64
-    }
-  }
-  Rgb([(brightness / size) as u8, (brightness / size) as u8, (brightness / size) as u8])
+  let brightness = (image.pixels().fold(0., |acc, (_, _, pixel)| {
+    acc + ((pixel[0] * 2 + pixel[1] * 3 + pixel[2]) / 6) as f64
+  }) / (image.dimensions().0 * image.dimensions().1) as f64) as u8;
+  Rgb([brightness, brightness, brightness])
 }
