@@ -29,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
   let input_image_rgb = input_dynamic_image.to_rgb();
   let input_image_gray = input_dynamic_image.grayscale().to_rgb();
   let (width, height) = input_image_gray.dimensions();
-  let mut canvas = create_canvas(width, height);
+  let mut canvas = create_canvas(width, height, Rgb(BACKGROUND));
 
   let font = get_font()?;
   let characters = get_character_images(original_tile_size, &font)?;
@@ -52,8 +52,8 @@ fn parse_input() -> Result<(String, String), io::Error> {
   }
 }
 
-fn create_canvas(width: u32, height: u32) -> BaseImage {
-  image::ImageBuffer::from_pixel(width, height, Rgb(BACKGROUND))
+fn create_canvas(width: u32, height: u32, color: Rgb<u8>) -> BaseImage {
+  image::ImageBuffer::from_pixel(width, height, color)
 }
 
 fn get_character_images(tile_size: u32, font: &Font<'static>) -> Result<Vec<(char, BaseImage)>, io::Error> {
@@ -61,15 +61,15 @@ fn get_character_images(tile_size: u32, font: &Font<'static>) -> Result<Vec<(cha
     .chain(b'A'..=b'Z').map(|c| c as char)
     .chain("@#$%^&()+=023456789/\\".chars())
      .map(|c| {
-       (c, get_character_image(tile_size, &font, &Rgb(FOREGROUND), &c))
+       (c, get_character_image(tile_size, &font, &Rgb(BACKGROUND), &Rgb(FOREGROUND), &c))
     }).collect())
 }
 
-fn get_character_image(tile_size: u32, font: &Font<'static>, color: &Rgb<u8>, character: &char) -> BaseImage {
-  let mut canvas = create_canvas(tile_size, tile_size);
+fn get_character_image(tile_size: u32, font: &Font<'static>, background_color: &Rgb<u8>, foreground_color: &Rgb<u8>, character: &char) -> BaseImage {
+  let mut canvas = create_canvas(tile_size, tile_size, *background_color);
   drawing::draw_text_mut(
     &mut canvas,
-    *color,
+    *foreground_color,
     tile_size / 4,
     0,
     Scale::uniform(tile_size as f32),
@@ -101,7 +101,7 @@ fn fill_canvas(
       let source_rgb_tile = SubImage::new(source_rgb, x * tile_size, y * tile_size, tile_size, tile_size);
       let source_gray_tile = SubImage::new(source_gray, x * tile_size, y * tile_size, tile_size, tile_size);
       let character = best_character(&source_gray_tile, &characters);
-      let character_image = get_character_image(original_tile_size, font, &get_average_color(&source_rgb_tile), character);
+      let character_image = get_character_image(original_tile_size, font, &get_average_britghness(&source_rgb_tile), &get_average_color(&source_rgb_tile), character);
 
       (x, y, character_image)
     })
@@ -121,7 +121,6 @@ fn compare_images(a: &BaseImage, b: &SubImage<&BaseImage>) -> f32 {
   if a.dimensions() != b.dimensions() {
     panic!("Images size didn't match")
   }
-  // let diff = a.pixels().zip(b.pixels()).into_par_iter().fold(0., |n, (a_p, b_p)| n + (a_p[0] as i16 - b_p.2[0] as i16).abs() as f32 / 255.);
   let mut diff = 0.;
   for x in 0..a.dimensions().0 {
     for y in 0..b.dimensions().1 {
@@ -164,4 +163,16 @@ fn get_average_color(image: &SubImage<&BaseImage>) -> Rgb<u8> {
     }
   }
   Rgb([(r / size) as u8, (g / size) as u8, (b / size) as u8])
+}
+
+fn get_average_britghness(image: &SubImage<&BaseImage>) -> Rgb<u8> {
+  let mut brightness: f64 = 0.;
+  let size = (image.dimensions().0 * image.dimensions().1) as f64;
+  for x in 0..image.dimensions().0 {
+    for y in 0..image.dimensions().1 {
+      let pixel = image.get_pixel(x, y);
+      brightness += ((pixel[0] * 2 + pixel[1] * 3 + pixel[2]) / 6) as f64
+    }
+  }
+  Rgb([(brightness / size) as u8, (brightness / size) as u8, (brightness / size) as u8])
 }
