@@ -1,7 +1,7 @@
 # rustcii
 Simple image to ascii image.
 
-![ASCII image](examples/imateapot.jpg)
+<img src="https://github.com/DrPandemic/rustcii/blob/master/examples/imateapot.jpg" width="450">
 
 ## How to use it?
 `rustcii input.jpg outpug.jpg`.
