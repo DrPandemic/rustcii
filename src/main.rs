@@ -1,6 +1,8 @@
 extern crate image;
 extern crate imageproc;
 extern crate rusttype;
+extern crate rayon;
+extern crate itertools;
 
 use std::env;
 use std::io;
@@ -10,10 +12,12 @@ use std::cmp::Ordering;
 use image::{GenericImageView, Rgb, SubImage};
 use imageproc::drawing;
 pub use rusttype::{Scale, Font};
+use itertools::Itertools;
+use rayon::prelude::*;
 
 type BaseImage = image::RgbImage;
-const BACKGROUND: [u8; 3] = [0, 0, 0];
-// const BACKGROUND: [u8; 3] = [255, 255, 255];
+// const BACKGROUND: [u8; 3] = [0, 0, 0];
+const BACKGROUND: [u8; 3] = [255, 255, 255];
 // const FOREGROUND: [u8; 3] = [255, 255, 255];
 const FOREGROUND: [u8; 3] = [127, 127, 127];
 
@@ -72,7 +76,7 @@ fn get_character_image(tile_size: u32, font: &Font<'static>, color: &Rgb<u8>, ch
     &font,
     &character.to_string(),
   );
-  image::imageops::crop(&mut canvas, 3, 1, tile_size - 4, tile_size - 4).to_image()
+  image::imageops::crop(&mut canvas, 4, 1, tile_size - 5, tile_size - 5).to_image()
 }
 
 fn get_font() -> Result<Font<'static>, io::Error> {
@@ -90,17 +94,22 @@ fn fill_canvas(
   tile_size: u32,
   font: &Font<'static>
 ) {
-  for x in 0..source_gray.dimensions().0 / tile_size {
-    for y in 0..source_gray.dimensions().1 / tile_size {
+  // I shouldn't collect here. I need to find what I need to implement to remove the collect
+  (0..source_gray.dimensions().0 / tile_size).cartesian_product(0..source_gray.dimensions().1 / tile_size)
+    .par_bridge()
+    .map(|(x, y)| {
       let source_rgb_tile = SubImage::new(source_rgb, x * tile_size, y * tile_size, tile_size, tile_size);
       let source_gray_tile = SubImage::new(source_gray, x * tile_size, y * tile_size, tile_size, tile_size);
       let character = best_character(&source_gray_tile, &characters);
-      copy_image(get_character_image(original_tile_size, font, &get_average_color(&source_rgb_tile), character), destination, x * tile_size, y * tile_size);
-    }
-  }
+      let character_image = get_character_image(original_tile_size, font, &get_average_color(&source_rgb_tile), character);
+
+      (x, y, character_image)
+    })
+    .collect::<Vec<(u32, u32, BaseImage)>>().iter()
+    .for_each(|(x, y, image)| copy_image(&image, destination, x * tile_size, y * tile_size));
 }
 
-fn copy_image(source: BaseImage, destination: &mut BaseImage, x: u32, y: u32) {
+fn copy_image(source: &BaseImage, destination: &mut BaseImage, x: u32, y: u32) {
   for xx in 0..source.dimensions().0 {
     for yy in 0..source.dimensions().1 {
       destination.put_pixel(x + xx, y + yy, *source.get_pixel(xx, yy))
@@ -112,13 +121,14 @@ fn compare_images(a: &BaseImage, b: &SubImage<&BaseImage>) -> f32 {
   if a.dimensions() != b.dimensions() {
     panic!("Images size didn't match")
   }
+  // let diff = a.pixels().zip(b.pixels()).into_par_iter().fold(0., |n, (a_p, b_p)| n + (a_p[0] as i16 - b_p.2[0] as i16).abs() as f32 / 255.);
   let mut diff = 0.;
   for x in 0..a.dimensions().0 {
     for y in 0..b.dimensions().1 {
       let a_p = a.get_pixel(x, y);
       let b_p = b.get_pixel(x, y);
 
-      // Only one channel since it's grayscale
+      // Only one channel since it's using grayscale
       diff += (a_p[0] as i16 - b_p[0] as i16).abs() as f32 / 255.;
     }
   }
