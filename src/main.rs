@@ -23,7 +23,7 @@ const FOREGROUND: [u8; 3] = [127, 127, 127];
 
 fn main() -> Result<(), Box<dyn Error>> {
   let (terminal, input_filename, output_filename) = parse_input()?;
-  let original_tile_size = 16;
+  let original_tile_size = 8;
 
   let input_dynamic_image = image::open(input_filename)?;
   let input_image_rgb = input_dynamic_image.to_rgb();
@@ -36,11 +36,11 @@ fn main() -> Result<(), Box<dyn Error>> {
   let tile_size = characters[0].1.dimensions().0;
 
   if terminal {
+    print_characters(get_characters(&input_image_gray, &characters, tile_size));
   } else {
     fill_canvas(&input_image_rgb, &input_image_gray, &mut canvas, &characters, original_tile_size, tile_size, &font);
+    canvas.save(output_filename).unwrap();
   }
-
-  canvas.save(output_filename).unwrap();
 
   Ok(())
 }
@@ -49,9 +49,12 @@ fn parse_input() -> Result<(bool, String, String), io::Error> {
   let mut args = env::args();
 
   if args.len() == 3 {
-    Ok((false, args.nth(1).unwrap(), args.nth(0).unwrap()))
-  } else if args.len() == 4 {
-    Ok((args.nth(1).unwrap() == "-t", args.nth(0).unwrap(), args.nth(0).unwrap()))
+    let first_arg = args.nth(1).unwrap();
+    if first_arg == "-t" {
+      Ok((true, args.nth(0).unwrap(), String::from("")))
+    } else {
+      Ok((false, first_arg, args.nth(0).unwrap()))
+    }
   } else {
     Err(io::Error::new(io::ErrorKind::InvalidInput, "You need 2 arguments"))
   }
@@ -90,19 +93,19 @@ fn get_font() -> Result<Font<'static>, io::Error> {
   Ok(font)
 }
 
-fn get_characters<'a>(
+fn get_characters(
   source_gray: &BaseImage,
-  characters: &'a Vec<(char, BaseImage)>,
+  characters: &Vec<(char, BaseImage)>,
   tile_size: u32,
-) -> std::vec::Vec<(u32, u32, &'a char)> {
+) -> Vec<(u32, u32, char)> {
   (0..source_gray.dimensions().0 / tile_size).cartesian_product(0..source_gray.dimensions().1 / tile_size)
     .par_bridge()
     .map(|(x, y)| {
       let source_gray_tile = SubImage::new(source_gray, x * tile_size, y * tile_size, tile_size, tile_size);
       let character = best_character(&source_gray_tile, &characters);
 
-      (x, y, character)
-    }).collect::<Vec<(u32, u32, &char)>>()
+      (x, y, *character)
+    }).collect::<Vec<(u32, u32, char)>>()
 }
 
 fn fill_canvas(
@@ -121,10 +124,10 @@ fn fill_canvas(
       let source_rgb_tile = SubImage::new(source_rgb, x * tile_size, y * tile_size, tile_size, tile_size);
       let character_image = get_character_image(original_tile_size, font, &get_average_britghness(&source_rgb_tile), &get_average_color(&source_rgb_tile), character);
 
-      (x, y, character_image)
+      (*x, *y, character_image)
     })
-    .collect::<Vec<(&u32, &u32, BaseImage)>>().iter()
-    .for_each(|(x, y, image)| copy_image(&image, destination, *x * tile_size, *y * tile_size));
+    .collect::<Vec<(u32, u32, BaseImage)>>().iter()
+    .for_each(|(x, y, image)| copy_image(&image, destination, x * tile_size, y * tile_size));
 }
 
 fn copy_image(source: &BaseImage, destination: &mut BaseImage, x: u32, y: u32) {
@@ -175,4 +178,14 @@ fn get_average_britghness(image: &SubImage<&BaseImage>) -> Rgb<u8> {
     acc + ((pixel[0] * 2 + pixel[1] * 3 + pixel[2]) / 6) as f64
   }) / (image.dimensions().0 * image.dimensions().1) as f64) as u8;
   Rgb([brightness, brightness, brightness])
+}
+
+fn print_characters(mut characters: Vec<(u32, u32, char)>) {
+  characters.sort_unstable_by(|(x0, y0, _), (x1, y1, _)| (y0, x0).cmp(&(y1, x1)));
+  characters.iter().for_each(|(x, _, character)| {
+    if *x == 0 {
+      print!("\n");
+    }
+    print!("{}", character);
+  });
 }

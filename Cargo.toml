@@ -9,7 +9,6 @@ imageproc = "*"
 rusttype = "*"
 rayon = "*"
 itertools = "0.8"
-terminal_size = "*"
 
 [profile.release]
 debug = true
