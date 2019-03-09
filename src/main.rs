@@ -16,14 +16,11 @@ use itertools::Itertools;
 use rayon::prelude::*;
 
 type BaseImage = image::RgbImage;
-// const BACKGROUND: [u8; 3] = [0, 0, 0];
 const BACKGROUND: [u8; 3] = [255, 255, 255];
-// const FOREGROUND: [u8; 3] = [255, 255, 255];
 const FOREGROUND: [u8; 3] = [127, 127, 127];
 
 fn main() -> Result<(), Box<dyn Error>> {
-  let (terminal, input_filename, output_filename) = parse_input()?;
-  let original_tile_size = 8;
+  let (terminal, original_tile_size, input_filename, output_filename) = parse_input()?;
 
   let input_dynamic_image = image::open(input_filename)?;
   let input_image_rgb = input_dynamic_image.to_rgb();
@@ -45,18 +42,23 @@ fn main() -> Result<(), Box<dyn Error>> {
   Ok(())
 }
 
-fn parse_input() -> Result<(bool, String, String), io::Error> {
+fn parse_input() -> Result<(bool, u32, String, String), io::Error> {
   let mut args = env::args();
 
-  if args.len() == 3 {
-    let first_arg = args.nth(1).unwrap();
-    if first_arg == "-t" {
-      Ok((true, args.nth(0).unwrap(), String::from("")))
+  if args.len() == 4 {
+    let size: u32 = args.nth(1).unwrap().parse().unwrap();
+    if size < 6 {
+      Err(io::Error::new(io::ErrorKind::InvalidInput, "Can't be smaller than 6"))
     } else {
-      Ok((false, first_arg, args.nth(0).unwrap()))
+      let maybe_t = args.nth(0).unwrap();
+      if maybe_t == "-t" {
+        Ok((true, size, args.nth(0).unwrap(), String::from("")))
+      } else {
+        Ok((false, size, maybe_t, args.nth(0).unwrap()))
+      }
     }
   } else {
-    Err(io::Error::new(io::ErrorKind::InvalidInput, "You need 2 arguments"))
+    Err(io::Error::new(io::ErrorKind::InvalidInput, "You need 3 arguments"))
   }
 }
 
@@ -143,8 +145,8 @@ fn compare_images(a: &BaseImage, b: &SubImage<&BaseImage>) -> f32 {
     panic!("Images size didn't match")
   }
   (0..a.dimensions().0).cartesian_product(0..a.dimensions().1).fold(0., |acc, (x, y)| {
-    let a_p = a.get_pixel(x, y);
-    let b_p = b.get_pixel(x, y);
+    let a_p = unsafe { a.unsafe_get_pixel(x, y) };
+    let b_p = unsafe { b.unsafe_get_pixel(x, y) };
 
     // Only one channel since it's using grayscale
     acc + (a_p[0] as i16 - b_p[0] as i16).abs() as f32 / 255.
