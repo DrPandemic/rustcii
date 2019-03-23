@@ -6,11 +6,25 @@ Simple image to ascii image.
 <img src="https://user-images.githubusercontent.com/3250155/54077544-e9150d80-4287-11e9-9ed6-85797f09d573.png" width="450">
 
 ## How to use it?
-`rustcii SIZE input.jpg outpug.jpg`
+```
+USAGE:
+    rustcii [FLAGS] [OPTIONS] <SIZE> <INPUT>
+FLAGS:
+    -h, --help       Prints help information
+    -t               Renders in the terminal
+    -V, --version    Prints version information
+OPTIONS:
+    -o, --output <FILE>    Sets the output file
+ARGS:
+    <SIZE>     Sets the tile size
+    <INPUT>    Sets the input file to use
+```
+### Examples
+`rustcii -o output.jpg 12 input.jpg`
 
-or
+and
 
-`rustcii SIZE -t input.jpg`
+`rustcii -t input.jpg 12`
 
 - The `SIZE` is the size of a tile.
 - `-t` outputs the result on the terminal.

@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::from_yaml(yaml).get_matches();
     let input_filename = matches.value_of("INPUT").unwrap();
     let original_tile_size = matches.value_of("SIZE").unwrap().parse::<u32>()?;
-    let output_filename = matches.value_of("output").unwrap_or("");
+    let output_filename = matches.value_of("output").unwrap_or("out.jpg");
 
     let input_dynamic_image = image::open(input_filename)?;
     let input_image_rgb = input_dynamic_image.to_rgb();
