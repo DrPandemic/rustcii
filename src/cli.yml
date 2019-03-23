@@ -1,0 +1,20 @@
+name: rustcii
+version: "0.1.0"
+args:
+    - SIZE:
+        help: Sets the tile size
+        required: true
+        index: 1
+    - INPUT:
+        help: Sets the input file to use
+        required: true
+        index: 2
+    - terminal:
+        short: t
+        help: Renders in the terminal
+    - output:
+        short: o
+        long: output
+        value_name: FILE
+        help: Sets the output file
+        takes_value: true

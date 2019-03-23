@@ -9,6 +9,7 @@ imageproc = "*"
 rusttype = "*"
 rayon = "*"
 itertools = "0.8"
+clap = {version = "2.32", features = ["yaml"]}
 
 [profile.release]
 debug = true
